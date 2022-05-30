@@ -1,0 +1,366 @@
+<html>
+
+<head>
+  <link rel="stylesheet" href="../../reveal.js/dist/reveal.css">
+  <link rel="stylesheet" href="../../reveal.js/dist/theme/sky.css">
+</head>
+
+<body>
+  <div class="reveal">
+    <div class="slides">
+        <section>
+          <h2 style="font-size:1.7em">裸金属二进制翻译器的设计与实现</h2>
+          <!-- <img class="r-stretch" src="../../images/obito.jpg"> -->
+          <ul>
+            <li>胡学仕</li>
+            <li>2021/12/30</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 style="font-size:1.7em">裸金属二进制翻译器的设计与实现</h2>
+          <!-- <img class="r-stretch" src="../../images/obito.jpg"> -->
+          <ul>
+            <li>动机: 为什么要做系统态二进制翻译</li>
+            <li>背景: QEMU 如何实现系统态二进制翻译及其问题</li>
+            <li>想法</li>
+            <ul>
+              <li>使用系统态模拟系统态</li>
+              <li>压缩软件栈</li>
+            </ul>
+            <li>设计</li>
+            <li>进度</li>
+          </ul>
+        </section>
+
+      <section data-auto-animate>
+        <h2>目的</h2>
+        <div class="text-left">
+          <ul>
+            <li style="font-size:1.0em">消灭指令集的差异</li>
+          </ul>
+        </div>
+      </section>
+      <section data-auto-animate>
+        <h2>目的</h2>
+        <div class="text-left">
+          <ul>
+            <li style="font-size:1.0em">消灭指令集的差异</li>
+            <li style="font-size:1.0em">LoongArch 架构高效运行其他架构的操作系统</li>
+          </ul>
+        </div>
+      </section>
+      <section data-auto-animate>
+        <h2>目的</h2>
+        <div class="text-left">
+          <ul>
+            <li style="font-size:1.0em">消灭指令集的差异</li>
+            <li style="font-size:1.0em">LoongArch 架构高效运行其他架构的操作系统</li>
+            <li style="font-size:1.0em">加速 LoongArch 上 x86 客户机操作系统运行</li>
+          </ul>
+        </div>
+      </section>
+
+
+      <section>
+        <h2>背景</h2>
+        <p> Linux + QEMU 实现系统态翻译</p>
+        <img class="r-stretch" src="../../images/QEMU-ARCH.svg">
+
+        <div class="paragraph" style="font-size:0.2em">
+          <p> qeme code flow
+            <span class="footnote">[<a id="_footnoteref_1" class="footnote"
+                href="https://vmsplice.net/~stefan/qemu-code-overview.pdf" title="View footnote.">ref</a>]</span>
+          </p>
+        </div>
+      </section>
+
+      <section data-auto-animate>
+        <h2 style="font-size:1.7em">想法 : 使用系统态模拟系统态</h2>
+        <p>HAMT : 利用 Dune 构建裸金属环境</p>
+        <img class="r-stretch" src="../../images/hamt.svg">
+        <p style="font-size:0.5em">利用 dune 可以将 QEMU 放到 guest 态, 从而 QEMU 可以直接访问 TLB 来加速访存</p>
+      </section>
+
+      <section data-auto-animate>
+        <h2 style="font-size:1.7em">想法 : 使用系统态模拟系统态</h2>
+        <p>Captive : 利用 unikernel 构建裸金属环境</p>
+        <img class="r-stretch" src="../../images/captive.png">
+        <p style="font-size:0.5em"> captive 将二进制翻译器放到 guest 态从而其可以获取直接访问系统资源的能力。
+          <span class="footnote">[<a id="_footnoteref_1" class="footnote" href="" title="">A Retargetable System-Level
+              DBT Hypervisor</a>]</span>
+          <br>这启发我们, 其实可以将二进制翻译器直接放到裸金属上。
+        </p>
+      </section>
+
+      <section data-auto-animate>
+        <h2 style="font-size:1.7em">想法 : 使用系统态模拟系统态</h2>
+        <p>Transmeta</p>
+        <img class="r-stretch" src="../../images/transmeta.png">
+        <p style="font-size:0.5em">
+          Transmeta 公司推出的 Crusoe VLIW 芯片，其利用 Code Morphing Software (CMS)
+          将 X86 指令翻译为 VLIW 指令，并使用硬件加速 Speculation , Precise exceptions 和 MMIO 访问等。
+          <span class="footnote">[<a id="_footnoteref_1" class="footnote" href="" title="">The Transmeta Code Morphing
+              Software: Using Speculation, Recovery, and Adaptive Retranslation to Address Real-Life
+              Challenges</a>]</span>
+        </p>
+      </section>
+
+      <section>
+        <h2 style="font-size:1.7em">想法 : 压缩软件栈</h2>
+        <img class="r-stretch" src="../../images/LKM.svg">
+        <div class="paragraph" style="font-size:0.2em">
+          <p>Linux Kernel Maps
+            <span class="footnote">[<a id="_footnoteref_1" class="footnote"
+                href="https://makelinux.github.io/kernel/map/" title="View footnote.">ref</a>]</span>
+          </p>
+        </div>
+        <p style="font-size:0.5em">Linux 内核很强大，但是对于系统态二进制翻译器而言，大多数功能不需要，其他的进程对于 QEMU 而言是只是干扰</p>
+      </section>
+
+      <section>
+        <h2 style="font-size:1.7em">想法 : 压缩软件栈</h2>
+        <img class="r-stretch" src="../../images/qemu-loc.png">
+        <p style="font-size:0.5em">QEMU 可以运行在各种操作系统上，支持 kvm tcg hvf xen 等 cpu 虚拟化方案，支持多种设备的模拟。但是我们只需要一个在 LoongArch
+          上运行的二进制翻译器。</p>
+      </section>
+
+      <section>
+        <h2 style="font-size:1.7em">想法: 压缩软件栈</h2>
+        <p>unikernel: 只为一个进程服务的 guest os</p>
+        <div class="r-stretch">
+          <img class="fragment"
+            src="../../images/normal_application_stack.png">
+          <img class="fragment"
+            src="../../images/unikernel_application_stack.png">
+        </div>
+      </section>
+
+      <section>
+        <h2>想法: 压缩软件栈</h2>
+        构建一个针对于 QEMU 的 unikernel
+        <img class="r-stretch" src="../../images/qemu-in-unikernel.svg">
+        <div class="text-left">
+          <ul>
+            <li style="font-size:0.5em">构建一个 unikernel，其中只是运行 QEMU</li>
+            <li style="font-size:0.5em">QEMU 运行在 kernel 态, 从而可以直接使用访问 TLB 来加速访存</li>
+          </ul>
+        </div>
+      </section>
+
+
+      <section>
+        <h2>设计</h2>
+        <div class="text-left">
+          <ul>
+            <li>设备模拟占据 QEMU 大部分代码, 因为可以直接访问系统资源，这些代码几乎都可以去掉</li>
+            <li>简化之后的 QEMU 无需复杂的系统调用, 所以可以移除掉 Linux Kernel</li>
+            <li>因为运行在裸金属上，HAMT 的优化可以轻松的迁移过来</li>
+            <li>Boot loader 加载翻译器，首先进行初始化，然后让 guest 直接接管硬件资源</li>
+          </ul>
+        </div>
+      </section>
+
+
+      <section>
+        <h2>设计</h2>
+        <img class="r-stretch" src="../../images/bmbt.svg">
+      </section>
+
+      <section>
+        <h2>进度</h2>
+        <div class="r-stretch" style="font-size:0.7em">
+          <ul>
+            <li style="color:#d48ca7"> 背景调查</li>
+            <li style="color:#d48ca7"> 架构设计</li>
+            <li style="color:#d48ca7"> QEMU 的代码搬运</li>
+            <ul style="color:#d48ca7">
+              <li>枚举出来依赖的外部库</li>
+              <li>枚举出来需要重构的接口</li>
+            </ul>
+            <li style="color:#d48ca7">用户态测试 SeaBIOS 代码</li>
+            <li style="color:#d48ca7">用户态测试 Linux Kernel 代码</li>
+            <li style="color:#d48ca7">移除依赖的第三方库</li>
+            <ul style="color:#d48ca7">
+              <li>glib</li>
+              <li>libc</li>
+            </ul>
+            <li style="color:#247c87">构建裸机运行环境</li>
+            <li>裸机测试 32bit x86 Linux</li>
+            <li style="color:#dbb330">裸机测试 xp</li>
+            <li style="color:#dbb330">移植 HAMT</li>
+            <li style="color:#dbb330">64bit 支持</li>
+            <li style="color:#dbb330">多核支持</li>
+          </ul>
+        </div>
+      </section>
+
+      <section>
+        <h2>谢谢大家</h2>
+      </section>
+
+    </div>
+
+    <script src="../../reveal.js/dist/reveal.js"></script>
+    <script>
+      Reveal.initialize({
+
+        // Display the page number of the current slide
+        // - true:    Show slide number
+        // - false:   Hide slide number
+        //
+        // Can optionally be set as a string that specifies the number formatting:
+        // - "h.v":   Horizontal . vertical slide number (default)
+        // - "h/v":   Horizontal / vertical slide number
+        // - "c":   Flattened slide number
+        // - "c/t":   Flattened slide number / total slides
+        //
+        // Alternatively, you can provide a function that returns the slide
+        // number for the current slide. The function should take in a slide
+        // object and return an array with one string [slideNumber] or
+        // three strings [n1,delimiter,n2]. See #formatSlideNumber().
+        slideNumber: true,
+
+        // Disables the default reveal.js slide layout (scaling and centering)
+        // so that you can use custom CSS layout
+        disableLayout: false,
+
+        // Vertical centering of slides
+        center: true,
+
+        // Enables touch navigation on devices with touch input
+        touch: true,
+
+        // Loop the presentation
+        loop: true,
+
+        // Change the presentation direction to be RTL
+        rtl: false,
+
+        // Turns fragments on and off globally
+        fragments: true,
+
+        // Flags whether to include the current fragment in the URL,
+        // so that reloading brings you to the same fragment position
+        fragmentInURL: true,
+
+        // Flags if the presentation is running in an embedded mode,
+        // i.e. contained within a limited portion of the screen
+        embedded: false,
+
+        // Flags if we should show a help overlay when the question-mark
+        // key is pressed
+        help: true,
+
+        // Flags if it should be possible to pause the presentation (blackout)
+        pause: true,
+
+        // Flags if speaker notes should be visible to all viewers
+        showNotes: false,
+
+        // Global override for autolaying embedded media (video/audio/iframe)
+        // - null:   Media will only autoplay if data-autoplay is present
+        // - true:   All media will autoplay, regardless of individual setting
+        // - false:  No media will autoplay, regardless of individual setting
+        autoPlayMedia: null,
+
+        // Global override for preloading lazy-loaded iframes
+        // - null:   Iframes with data-src AND data-preload will be loaded when within
+        //           the viewDistance, iframes with only data-src will be loaded when visible
+        // - true:   All iframes with data-src will be loaded when within the viewDistance
+        // - false:  All iframes with data-src will be loaded only when visible
+        preloadIframes: null,
+
+        // Can be used to globally disable auto-animation
+        autoAnimate: true,
+
+        // Optionally provide a custom element matcher that will be
+        // used to dictate which elements we can animate between.
+        autoAnimateMatcher: null,
+
+        // Default settings for our auto-animate transitions, can be
+        // overridden per-slide or per-element via data arguments
+        autoAnimateEasing: 'ease',
+        autoAnimateDuration: 1.0,
+        autoAnimateUnmatched: true,
+
+        // CSS properties that can be auto-animated. Position & scale
+        // is matched separately so there's no need to include styles
+        // like top/right/bottom/left, width/height or margin.
+        autoAnimateStyles: [
+          'opacity',
+          'color',
+          'background-color',
+          'padding',
+          'font-size',
+          'line-height',
+          'letter-spacing',
+          'border-width',
+          'border-color',
+          'border-radius',
+          'outline',
+          'outline-offset'
+        ],
+
+        // Controls automatic progression to the next slide
+        // - 0:      Auto-sliding only happens if the data-autoslide HTML attribute
+        //           is present on the current slide or fragment
+        // - 1+:     All slides will progress automatically at the given interval
+        // - false:  No auto-sliding, even if data-autoslide is present
+        autoSlide: 0,
+
+        // Stop auto-sliding after user input
+        autoSlideStoppable: true,
+
+        // Use this method for navigation when auto-sliding (defaults to navigateNext)
+        autoSlideMethod: null,
+
+        // Specify the average time in seconds that you think you will spend
+        // presenting each slide. This is used to show a pacing timer in the
+        // speaker view
+        defaultTiming: null,
+
+        // Enable slide navigation via mouse wheel
+        mouseWheel: false,
+
+        // Opens links in an iframe preview overlay
+        // Add `data-preview-link` and `data-preview-link="false"` to customise each link
+        // individually
+        previewLinks: false,
+
+        // Exposes the reveal.js API through window.postMessage
+        postMessage: true,
+
+        // Dispatches all reveal.js events to the parent window through postMessage
+        postMessageEvents: false,
+
+        // Focuses body when page changes visibility to ensure keyboard shortcuts work
+        focusBodyOnPageVisibilityChange: true,
+
+        // Transition style
+        transition: 'convex', // none/fade/slide/convex/concave/zoom
+
+        // Transition style for full page slide backgrounds
+        backgroundTransition: 'fade', // none/fade/slide/convex/concave/zoom
+
+        // Number of slides away from the current that are visible
+        viewDistance: 1000,
+
+        // Number of slides away from the current that are visible on mobile
+        // devices. It is advisable to set this to a lower number than
+        // viewDistance in order to save resources.
+        mobileViewDistance: 2,
+
+        // The display mode that will be used to show slides
+        display: 'block',
+
+        // Hide cursor if inactive
+        hideInactiveCursor: true,
+
+        // Time before the cursor is hidden (in ms)
+        hideCursorTime: 5000
+      });
+    </script>
+</body>
+
+</html>

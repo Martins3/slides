@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+
+  <title>reveal.js - Markdown Example</title>
+
+  <link rel="stylesheet" href="../../reveal.js/dist/reveal.css">
+  <link rel="stylesheet" href="../../reveal.js/dist/theme/solarized.css" id="theme">
+
+  <link rel="stylesheet" href="../../reveal.js/plugin/highlight/monokai.css">
+</head>
+
+<body>
+
+  <div class="reveal">
+
+    <div class="slides">
+
+      <!-- Slides are separated by three dashes (quick 'n dirty regular expression) -->
+      <section data-markdown data-separator="\*\*\*">
+        <script type="text/template">
+## 研究生三年级上学期的总结
+---
+- 工作产出 <!-- .element: class="fragment" data-fragment-index="1" -->
+- 自我评价 <!-- .element: class="fragment" data-fragment-index="2" -->
+- 未来规划 <!-- .element: class="fragment" data-fragment-index="3" -->
+- 意见建议 <!-- .element: class="fragment" data-fragment-index="4" -->
+
+***
+
+#### Dune : 让用户进程可以直接操纵 hardware 资源
+---
+---
+
+|          | kvm                                 | dune         |
+|----------|-------------------------------------|--------------|
+| 能力     | 相当于裸机，可以运行操作系统        | 运行进程     |
+| 实现方法 | 模拟每一个 hardware resource 的操作 | 模拟 syscall |
+
+***
+
+#### BMBT : 让 QEMU 可以直接操纵 hardware 资源
+
+---
+---
+
+|          | Qemu    | BMBT          |
+|----------|---------|---------------|
+| CPU 模拟 | tcg     | LATX          |
+| 设备     | 模拟    | 直通          |
+| 内存     | softmmu | 硬件 TLB 加速 |
+| 中断     | 模拟    | 模拟          |
+
+***
+
+## 自我评价
+
+工程刚刚好，学术不足。
+
+| 📖 |  😥|
+|-|-|
+|👨‍💻|  😀|
+    </script>
+      </section>
+
+      <section data-markdown data-background="#99c3e8">
+        <script type="text/template">
+## 未来规划
+
+- 完成 bmbt 
+- 写毕业论文
+    </script>
+      </section>
+
+      <section data-markdown data-background="#d48ca7">
+        <script type="text/template">
+## 对实验室的建议
+
+    </script>
+      </section>
+    </div>
+  </div>
+
+  <script src="../../reveal.js/dist/reveal.js"></script>
+  <script src="../../reveal.js/plugin/markdown/markdown.js"></script>
+  <script src="../../reveal.js/plugin/highlight/highlight.js"></script>
+  <script src="../../reveal.js/plugin/notes/notes.js"></script>
+
+  <script>
+
+    Reveal.initialize({
+      controls: true,
+      progress: true,
+      history: true,
+      center: true,
+
+      plugins: [RevealMarkdown, RevealHighlight, RevealNotes]
+    });
+
+  </script>
+
+</body>
+
+</html>

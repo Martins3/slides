@@ -1,0 +1,231 @@
+<html>
+
+<head>
+  <link rel="stylesheet" href="../../reveal.js/dist/reveal.css">
+  <link rel="stylesheet" href="../../reveal.js/dist/theme/sky.css">
+</head>
+
+<body>
+  <div class="reveal">
+    <div class="slides">
+
+
+      <section data-auto-animate>
+        <h2>想法</h2>
+        <p>Ramooflax</p>
+        <img class="r-stretch" src="../../images/ramooflax.png">
+        <p style="font-size:0.5em">
+          ramooflax 紧接着 BIOS 之后运行，之后其可以将 native 的 os 放到虚拟机中运行。
+          <span class="footnote">[<a id="_footnoteref_1" class="footnote"
+              href="https://github.com/airbus-seclab/ramooflax"
+              title="">https://github.com/airbus-seclab/ramooflax</a>]</span> <br>
+          这启发我们，QEMU + unikernel 的制作可以采取类似的运行流程，只是需要将 intel vmx 加速的虚拟化替换为二进制翻译器即可。而且，host 将设备完全交给 guest
+          管理，证明了设备直通的可行性。
+        </p>
+      </section>
+
+      <section>
+        <h2>背景</h2>
+        <p>Linux + QEMU 实现系统态翻译的几个部分</p>
+        <table class="r-stretch">
+          <thead>
+            <tr>
+              <th>内容</th>
+              <th>二进制翻译模拟方法</th>
+              <th>kvm</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>CPU</td>
+              <td>tcg 逐条指令翻译</td>
+              <td>硬件加速, 相同架构指令直接执行</td>
+            </tr>
+            <tr>
+              <td>内存</td>
+              <td>softmmu</td>
+              <td>two dimension paging</td>
+            </tr>
+            <tr>
+              <td>设备 / 中断</td>
+              <td>设备模拟 / virtio / <mark> VFIO</mark>
+                <span class="footnote">[<a id="_footnoteref_1" class="footnote"
+                    href="https://bugs.launchpad.net/qemu/+bug/1869006" title="View footnote.">ref</a>]</span>
+              </td>
+              <td>设备模拟 / virtio / VFIO</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>背景</h2>
+        <p style="font-size:0.9em">Linux + QEMU 实现系统态翻译 : xqm 加速 cpu 虚拟化</p>
+        <img class="r-stretch" src="../../images/tcg.svg">
+        <p style="font-size:0.5em">为了实现多个架构之间互相翻译，QEMU 采用了 tcg ir, 但是这导致了翻译质量下降。<br>而 x86-qemu-mips 项目将 tcg 移除掉了。</p>
+      </section>
+
+
+      <script src="../../reveal.js/dist/reveal.js"></script>
+      <script>
+        Reveal.initialize({
+
+          // Display the page number of the current slide
+          // - true:    Show slide number
+          // - false:   Hide slide number
+          //
+          // Can optionally be set as a string that specifies the number formatting:
+          // - "h.v":   Horizontal . vertical slide number (default)
+          // - "h/v":   Horizontal / vertical slide number
+          // - "c":   Flattened slide number
+          // - "c/t":   Flattened slide number / total slides
+          //
+          // Alternatively, you can provide a function that returns the slide
+          // number for the current slide. The function should take in a slide
+          // object and return an array with one string [slideNumber] or
+          // three strings [n1,delimiter,n2]. See #formatSlideNumber().
+          slideNumber: true,
+
+          // Disables the default reveal.js slide layout (scaling and centering)
+          // so that you can use custom CSS layout
+          disableLayout: false,
+
+          // Vertical centering of slides
+          center: true,
+
+          // Enables touch navigation on devices with touch input
+          touch: true,
+
+          // Loop the presentation
+          loop: true,
+
+          // Change the presentation direction to be RTL
+          rtl: false,
+
+          // Turns fragments on and off globally
+          fragments: true,
+
+          // Flags whether to include the current fragment in the URL,
+          // so that reloading brings you to the same fragment position
+          fragmentInURL: true,
+
+          // Flags if the presentation is running in an embedded mode,
+          // i.e. contained within a limited portion of the screen
+          embedded: false,
+
+          // Flags if we should show a help overlay when the question-mark
+          // key is pressed
+          help: true,
+
+          // Flags if it should be possible to pause the presentation (blackout)
+          pause: true,
+
+          // Flags if speaker notes should be visible to all viewers
+          showNotes: false,
+
+          // Global override for autolaying embedded media (video/audio/iframe)
+          // - null:   Media will only autoplay if data-autoplay is present
+          // - true:   All media will autoplay, regardless of individual setting
+          // - false:  No media will autoplay, regardless of individual setting
+          autoPlayMedia: null,
+
+          // Global override for preloading lazy-loaded iframes
+          // - null:   Iframes with data-src AND data-preload will be loaded when within
+          //           the viewDistance, iframes with only data-src will be loaded when visible
+          // - true:   All iframes with data-src will be loaded when within the viewDistance
+          // - false:  All iframes with data-src will be loaded only when visible
+          preloadIframes: null,
+
+          // Can be used to globally disable auto-animation
+          autoAnimate: true,
+
+          // Optionally provide a custom element matcher that will be
+          // used to dictate which elements we can animate between.
+          autoAnimateMatcher: null,
+
+          // Default settings for our auto-animate transitions, can be
+          // overridden per-slide or per-element via data arguments
+          autoAnimateEasing: 'ease',
+          autoAnimateDuration: 1.0,
+          autoAnimateUnmatched: true,
+
+          // CSS properties that can be auto-animated. Position & scale
+          // is matched separately so there's no need to include styles
+          // like top/right/bottom/left, width/height or margin.
+          autoAnimateStyles: [
+            'opacity',
+            'color',
+            'background-color',
+            'padding',
+            'font-size',
+            'line-height',
+            'letter-spacing',
+            'border-width',
+            'border-color',
+            'border-radius',
+            'outline',
+            'outline-offset'
+          ],
+
+          // Controls automatic progression to the next slide
+          // - 0:      Auto-sliding only happens if the data-autoslide HTML attribute
+          //           is present on the current slide or fragment
+          // - 1+:     All slides will progress automatically at the given interval
+          // - false:  No auto-sliding, even if data-autoslide is present
+          autoSlide: 0,
+
+          // Stop auto-sliding after user input
+          autoSlideStoppable: true,
+
+          // Use this method for navigation when auto-sliding (defaults to navigateNext)
+          autoSlideMethod: null,
+
+          // Specify the average time in seconds that you think you will spend
+          // presenting each slide. This is used to show a pacing timer in the
+          // speaker view
+          defaultTiming: null,
+
+          // Enable slide navigation via mouse wheel
+          mouseWheel: false,
+
+          // Opens links in an iframe preview overlay
+          // Add `data-preview-link` and `data-preview-link="false"` to customise each link
+          // individually
+          previewLinks: false,
+
+          // Exposes the reveal.js API through window.postMessage
+          postMessage: true,
+
+          // Dispatches all reveal.js events to the parent window through postMessage
+          postMessageEvents: false,
+
+          // Focuses body when page changes visibility to ensure keyboard shortcuts work
+          focusBodyOnPageVisibilityChange: true,
+
+          // Transition style
+          transition: 'convex', // none/fade/slide/convex/concave/zoom
+
+          // Transition style for full page slide backgrounds
+          backgroundTransition: 'fade', // none/fade/slide/convex/concave/zoom
+
+          // Number of slides away from the current that are visible
+          viewDistance: 1000,
+
+          // Number of slides away from the current that are visible on mobile
+          // devices. It is advisable to set this to a lower number than
+          // viewDistance in order to save resources.
+          mobileViewDistance: 2,
+
+          // The display mode that will be used to show slides
+          display: 'block',
+
+          // Hide cursor if inactive
+          hideInactiveCursor: true,
+
+          // Time before the cursor is hidden (in ms)
+          hideCursorTime: 5000
+        });
+      </script>
+</body>
+
+</html>

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+
+  <title>reveal.js - Markdown Example</title>
+
+  <link rel="stylesheet" href="../../reveal.js/dist/reveal.css">
+  <link rel="stylesheet" href="../../reveal.js/dist/theme/solarized.css" id="theme">
+
+  <link rel="stylesheet" href="../../reveal.js/plugin/highlight/monokai.css">
+</head>
+
+<body>
+
+  <div class="reveal">
+
+    <div class="slides">
+
+      <!-- Slides are separated by three dashes (quick 'n dirty regular expression) -->
+      <section data-markdown data-separator="\*\*\*">
+        <script type="text/template">
+## 研究生二年级上学期的总结
+---
+- 学习进展 <!-- .element: class="fragment" data-fragment-index="1" -->
+- 工作产出 <!-- .element: class="fragment" data-fragment-index="1" -->
+- 自我评价 <!-- .element: class="fragment" data-fragment-index="2" -->
+- 自我规划 <!-- .element: class="fragment" data-fragment-index="3" -->
+- 意见建议 <!-- .element: class="fragment" data-fragment-index="4" -->
+
+***
+
+#### Dune : 让用户进程可以直接操纵 hardware 资源
+---
+---
+
+|| kvm| dune |
+|-|-|-|
+|能力|相当于裸机，可以运行操作系统|运行进程|
+|实现方法|模拟每一个 hardware resource 的操作  | 模拟 syscall |
+
+***
+
+#### 实现思路
+---
+---
+
+|x86_64| mips64 |
+|-|-|
+|dune| 😫|
+
+***
+#### 先导知识
+
+- kernel <!-- .element: class="fragment" data-fragment-index="1" -->
+  - syscall
+  - process management
+  - memory management
+- x86 kvm <!-- .element: class="fragment" data-fragment-index="2" -->
+  - cpu
+  - memory
+  - __int__
+  - device
+- mips kvm <!-- .element: class="fragment" data-fragment-index="3" -->
+  - vz 
+***
+#### 阅读学习
+- Intel Software Developer Manual
+- 用"芯"探核 基于龙芯的 Linux 内核探索解析
+- See Mips Run 2nd Edition
+- Understanding Linux Kernel
+- MIPS Manual : Virtualization Module of the MIPS64 Architecture
+- 深度探索 Linxu 系统虚拟化 原理与实现
+- 博客
+  - https://www.cnblogs.com/LoyenWang/
+  - https://kernelgo.org/
+  - ...
+    </script>
+      </section>
+
+      <!-- Slide attributes -->
+      <section data-markdown data-separator="\*\*\*" data-background="#84b89d">
+        <script type="text/template">
+
+## 工作产出
+- [x] x86 dune 调试通过
+  - [x] syscall 接口变化
+  - [x] vdso 相关的系统调用
+  - [x] SIMD 指令地址对其
+  - [x] hugepage 拷贝
+- 设计完成
+- 完成部分代码
+  - [x] kvm interface
+  - [ ] cp0 init
+  - [ ] tlbex
+  - [ ] syscall emulation
+
+***
+
+## 工作产出
+- [x] gensim / captive 分析 和 调通
+- [x] loongson 下的工作环境
+    </script>
+      </section>
+
+      <section data-markdown data-background="#c0d184">
+        <script type="text/template">
+## 自我评价
+
+产出不足
+
+| 📖 | 😀|
+|-|-|
+|👨‍💻|😥|
+    </script>
+      </section>
+
+      <section data-markdown data-background="#99c3e8">
+        <script type="text/template">
+## 未来规划
+
+- 完成 dune 的构建
+- captive 🤔
+    </script>
+      </section>
+
+      <section data-markdown data-background="#d48ca7">
+        <script type="text/template">
+## 对实验室的意见建议
+
+    </script>
+      </section>
+
+
+    </div>
+  </div>
+
+  <script src="../../reveal.js/dist/reveal.js"></script>
+  <script src="../../reveal.js/plugin/markdown/markdown.js"></script>
+  <script src="../../reveal.js/plugin/highlight/highlight.js"></script>
+  <script src="../../reveal.js/plugin/notes/notes.js"></script>
+
+  <script>
+
+    Reveal.initialize({
+      controls: true,
+      progress: true,
+      history: true,
+      center: true,
+
+      plugins: [RevealMarkdown, RevealHighlight, RevealNotes]
+    });
+
+  </script>
+
+</body>
+
+</html>

@@ -1,0 +1,804 @@
+<!doctype html>
+
+<!--
+  A presentation done entirely in Markdown, as found in extras/markdown/.
+  
+  By: @henrikingo
+-->
+
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Markdown in impress.js | by Henrik Ingo @henrikingo</title>
+    
+    <meta name="description" content="Authoring impress.js presentations in Markdown" />
+    <meta name="author" content="Henrik Ingo" />
+    <link rel="stylesheet" href="../../impress.js/extras/highlight/styles/github.css">
+
+        
+    <!--
+        Styles specific for this example presentation. 
+    -->
+    <link href="css/markdown-slides.css" rel="stylesheet" />
+    <link href="css/devopsy.css" rel="stylesheet" />
+    <link href="css/effects.css" rel="stylesheet" />
+    
+</head>
+
+<body class="impress-not-supported">
+<div class="fallback-message">
+    <p>Your browser <b>doesn't support the features required</b> by impress.js, so you are presented with a simplified version of this presentation.</p>
+    <p>For the best experience please use the latest <b>Chrome</b>, <b>Safari</b> or <b>Firefox</b> browser.</p>
+</div>
+
+<div id="impress" data-transition-duration="1000">
+
+<!-- 第一部分分析一下C语言的 动态规划 -->
+<div id="objects" class="step slide markdown" data-rel-x="0" data-rel-y="900">
+# Glibc & VFS & FS & Device
+-----
+# Object-Oriented Programming With ANSI-C
+
+> Object-oriented programming (OOP) is a programming paradigm based on the concept of "objects", which can contain **data**, in the form of fields (often known as attributes), and code, in the form of **procedures** (often known as methods).
+
+* Inheritance
+
+        struct proc_inode {
+          struct pid *pid;
+          // ...
+          struct inode vfs_inode;
+        };
+
+        #define container_of(ptr, type, member) ({			\
+          const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
+          (type *)( (char *)__mptr - offsetof(type,member) );})
+
+* Override
+
+        struct inode {
+          const struct file_operations	*f_op;
+          const struct file_operations	*i_fop;	/* former ->i_op->default_file_ops */
+          // ...
+          void			*i_private; /* fs or device private pointer */
+        }
+</div>
+
+<!--  -->
+<div id="title-slide" class="step slide markdown" data-x="2000" data-z="3000" data-y="0">
+# Glibc
+
+> The GNU C Library, commonly known as **glibc**, is the GNU Project's implementation of the **C standard library**. Despite its name, it now also directly supports C++ (and, indirectly, other programming languages). It was started in the early 1990s by the **Free Software Foundation** (FSF) for their GNU operating system. 
+
+</div>
+
+<div id="glibc" class="step slide markdown" data-rel-x = "0" data-rel-y = "900">
+# A piece of Code
+
+      #include <stdio.h>
+      #include <stdlib.h>
+      int main() {
+        char ch;
+        FILE *fp = fopen("./t.c", "r");
+        while ((ch = fgetc(fp)) != EOF) printf("%c", ch);
+        return 0;
+      }
+
+-----
+# Dive Into Glibc
+
+        FILE * _IO_new_fopen (const char *filename, const char *mode)
+        FILE * __fopen_internal (const char *filename, const char *mode, int is32)
+        versioned_symbol (libc, _IO_new_file_fopen, _IO_file_fopen, GLIBC_2_1);
+        _IO_new_file_fopen (FILE *fp, const char *filename, const char *mode, int is32not64)
+        FILE * _IO_file_open (FILE *fp, const char *filename, int posix_mode, int prot, int read_write, int is32not64)
+        extern int __open (const char *__file, int __oflag, ...);
+        strong_alias (__libc_open64, __open)
+-----
+# Dive Into Glibc
+
+        /* Open FILE with access OFLAG.  If O_CREAT or O_TMPFILE is in OFLAG,
+           a third argument is the file protection.  */
+        int
+        __libc_open64 (const char *file, int oflag, ...)
+        {
+          int mode = 0;
+
+          if (__OPEN_NEEDS_MODE (oflag))
+            {
+              va_list arg;
+              va_start (arg, oflag);
+              mode = va_arg (arg, int);
+              va_end (arg);
+            }
+
+          return SYSCALL_CANCEL (openat, AT_FDCWD, file, oflag | EXTRA_OPEN_FLAGS,
+               mode);
+        }
+
+-----
+# A Thousand Years Later
+
+        #undef internal_syscall0
+        #define internal_syscall0(number, err, dummy...)			\
+        ({									\
+            unsigned long int resultvar;					\
+            asm volatile (							\
+            "syscall\n\t"							\
+            : "=a" (resultvar)							\
+            : "0" (number)							\
+            : "memory", REGISTERS_CLOBBERED_BY_SYSCALL);			\
+            (long int) resultvar;						\
+        })
+</div>
+
+
+<div id="tilted-slide" class="step slide markdown"  data-x="3000" data-y="0" data-z="10000">
+# Tour in Kernel : VFS
+</div>
+
+
+<div id="Kernel" class="step slide markdown" data-rel-x = "0" data-rel-y = "900" data-rel-z = "0">
+# Kernel: User Interface
+
+* fs/open.c
+
+        SYSCALL_DEFINE4(openat, int, dfd, const char __user *, filename, int, flags,
+            umode_t, mode)
+        {
+          if (force_o_largefile())
+            flags |= O_LARGEFILE;
+
+          return do_sys_open(dfd, filename, flags, mode);
+        }
+
+* include/linux/syscall.h
+
+        #define SYSCALL_DEFINE0(sname)					\
+          SYSCALL_METADATA(_##sname, 0);				\
+          asmlinkage long sys_##sname(void)
+
+        #define SYSCALL_DEFINE1(name, ...) SYSCALL_DEFINEx(1, _##name, __VA_ARGS__)
+        // ....
+        #define SYSCALL_DEFINE6(name, ...) SYSCALL_DEFINEx(6, _##name, __VA_ARGS__)
+
+-----
+# Kernel: Current's fd
+
+* fs/open.c
+
+        long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
+          |
+          |---> static inline int build_open_flags(int flags, umode_t mode, struct open_flags *op)
+          |---> struct filename * getname_flags(const char __user *filename, int flags, int *empty)
+          |---> get_unused_fd_flags(flags);
+          |---> struct file *do_filp_open(int dfd, struct filename *pathname, const struct open_flags *op)
+          |---> static inline void fsnotify_open(struct file *file)
+          |---> void fd_install(unsigned int fd, struct file *file)
+      
+* fs/file.c
+
+
+        int get_unused_fd_flags(unsigned flags) {
+          return __alloc_fd(current->files, 0, rlimit(RLIMIT_NOFILE), flags);
+        }
+
+        static int alloc_fd(unsigned start, unsigned flags) {
+          return __alloc_fd(current->files, start, rlimit(RLIMIT_NOFILE), flags);
+        }
+
+        /*
+         * allocate a file descriptor, mark it busy.
+         */
+        int __alloc_fd(struct files_struct *files,
+                 unsigned start, unsigned end, unsigned flags) {
+
+-----
+# Kernel : VFS
+* fs/namei.c
+
+        struct file *do_filp_open(int dfd, struct filename *pathname,
+            const struct open_flags *op)
+        {
+          struct nameidata nd;
+          int flags = op->lookup_flags;
+          struct file *filp;
+
+          set_nameidata(&nd, dfd, pathname);
+          filp = path_openat(&nd, op, flags | LOOKUP_RCU);
+          if (unlikely(filp == ERR_PTR(-ECHILD)))
+            filp = path_openat(&nd, op, flags);
+          if (unlikely(filp == ERR_PTR(-ESTALE)))
+            filp = path_openat(&nd, op, flags | LOOKUP_REVAL);
+          restore_nameidata();
+          return filp;
+        }
+
+* fs/namei.c
+
+        struct nameidata {
+          struct path	path;
+          struct qstr	last;
+          struct path	root;
+          struct inode	*inode; /* path.dentry.d_inode */
+          unsigned int	flags;
+          // ....
+-----
+# Kernel : VFS
+
+* fs/namei.c
+
+          static struct file *path_openat(struct nameidata *nd,
+                const struct open_flags *op, unsigned flags)
+          {
+            // ....
+            while (!(error = link_path_walk(s, nd)) &&
+              (error = do_last(nd, file, op, &opened)) > 0) {
+              nd->flags &= ~(LOOKUP_OPEN|LOOKUP_CREATE|LOOKUP_EXCL);
+              s = trailing_symlink(nd);
+              if (IS_ERR(s)) {
+                error = PTR_ERR(s);
+                break;
+              }
+            }
+            // ....
+
+-----
+# Kernel : VFS
+* fs/namei.c
+
+            /*
+             * Name resolution.
+             * This is the basic name resolution function, turning a pathname into
+             * the final dentry. We expect 'base' to be positive and a directory.
+             *
+             * Returns 0 and nd will have valid dentry and mnt on success.
+             * Returns error and drops reference to input namei data on failure.
+             */
+            static int link_path_walk(const char *name, struct nameidata *nd)
+
+            /*
+             * Handle the last step of open()
+             */
+            static int do_last(struct nameidata *nd,
+                   struct file *file, const struct open_flags *op,
+                   int *opened)
+
+-----
+# Kernel : VFS
+* fs/namei.c
+
+              /* Fast lookup failed, do it the slow way */
+              static int lookup_slow(struct nameidata *nd, struct path *path)
+              {
+                struct dentry *dentry, *parent;
+
+                parent = nd->path.dentry;
+                BUG_ON(nd->inode != parent->d_inode);
+
+                mutex_lock(&parent->d_inode->i_mutex);
+                dentry = __lookup_hash(&nd->last, parent, nd->flags);
+                mutex_unlock(&parent->d_inode->i_mutex);
+                if (IS_ERR(dentry))
+                  return PTR_ERR(dentry);
+                path->mnt = nd->path.mnt;
+                path->dentry = dentry;
+                return follow_managed(path, nd);
+              }
+
+
+              static struct dentry *__lookup_hash(struct qstr *name,
+                  struct dentry *base, unsigned int flags)
+              {
+                bool need_lookup;
+                struct dentry *dentry;
+
+                dentry = lookup_dcache(name, base, flags, &need_lookup);
+                if (!need_lookup)
+                  return dentry;
+
+                return lookup_real(base->d_inode, dentry, flags);
+              }
+-----
+# Kernel : VFS
+* fs/namei.c
+
+            static struct dentry *lookup_real(struct inode *dir, struct dentry *dentry,
+                      unsigned int flags)
+            {
+              struct dentry *old;
+
+              /* Don't create child dentry for a dead directory. */
+              if (unlikely(IS_DEADDIR(dir))) {
+                dput(dentry);
+                return ERR_PTR(-ENOENT);
+              }
+
+              old = dir->i_op->lookup(dir, dentry, flags);
+              if (unlikely(old)) {
+                dput(dentry);
+                dentry = old;
+              }
+              return dentry;
+            }
+</div>
+
+<div id="Ext4-slide" class="step slide markdown"  data-x="5000" data-y="0" data-z="20000">
+# Tour in Kernel : Ext4
+</div>
+
+
+<div id="Ext4" class="step slide markdown" data-rel-x = "0" data-rel-y = "900" data-rel-z = "0">
+# Prerequisite Knowledge
+
+## Inode
+
+        struct inode{
+          //...
+          const struct inode_operations	*i_op;
+          //...
+          const struct file_operations	*i_fop;	/* former ->i_op->default_file_ops */
+          //...
+          union {
+            struct pipe_inode_info	*i_pipe;
+            struct block_device	*i_bdev;
+            struct cdev		*i_cdev;
+            char			*i_link;
+          };
+          //...
+        }
+        ```
+-----
+# Prerequisite Knowledge
+
+## file operation
+
+          struct file_operations {
+            struct module *owner;
+            loff_t (*llseek) (struct file *, loff_t, int);
+            ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);
+            ssize_t (*write) (struct file *, const char __user *, size_t, loff_t *);
+            ssize_t (*read_iter) (struct kiocb *, struct iov_iter *);
+            ssize_t (*write_iter) (struct kiocb *, struct iov_iter *);
+            int (*iterate) (struct file *, struct dir_context *);
+            unsigned int (*poll) (struct file *, struct poll_table_struct *);
+            long (*unlocked_ioctl) (struct file *, unsigned int, unsigned long);
+            long (*compat_ioctl) (struct file *, unsigned int, unsigned long);
+            int (*mmap) (struct file *, struct vm_area_struct *);
+            int (*open) (struct inode *, struct file *);
+            int (*flush) (struct file *, fl_owner_t id);
+            int (*release) (struct inode *, struct file *);
+            int (*fsync) (struct file *, loff_t, loff_t, int datasync);
+            int (*aio_fsync) (struct kiocb *, int datasync);
+            int (*fasync) (int, struct file *, int);
+            int (*lock) (struct file *, int, struct file_lock *);
+            int (*check_flags)(int);
+            int (*flock) (struct file *, int, struct file_lock *);
+            int (*setlease)(struct file *, long, struct file_lock **, void **);
+            long (*fallocate)(struct file *file, int mode, loff_t offset,
+                  loff_t len);
+            void (*show_fdinfo)(struct seq_file *m, struct file *f);
+          };
+-----
+# Prerequisite Knowledge
+
+## Inode operation
+
+          struct inode_operations {
+            struct dentry * (*lookup) (struct inode *,struct dentry *, unsigned int);
+            const char * (*follow_link) (struct dentry *, void **);
+            int (*permission) (struct inode *, int);
+            struct posix_acl * (*get_acl)(struct inode *, int);
+
+            int (*readlink) (struct dentry *, char __user *,int);
+            void (*put_link) (struct inode *, void *);
+
+            int (*create) (struct inode *,struct dentry *, umode_t, bool);
+            int (*link) (struct dentry *,struct inode *,struct dentry *);
+            int (*unlink) (struct inode *,struct dentry *);
+            int (*symlink) (struct inode *,struct dentry *,const char *);
+            int (*mkdir) (struct inode *,struct dentry *,umode_t);
+            int (*rmdir) (struct inode *,struct dentry *);
+            int (*mknod) (struct inode *,struct dentry *,umode_t,dev_t);
+            int (*rename) (struct inode *, struct dentry *,
+                struct inode *, struct dentry *);
+            int (*rename2) (struct inode *, struct dentry *,
+                struct inode *, struct dentry *, unsigned int);
+          } ____cacheline_aligned;
+
+-----
+# Ext4 
+          const struct inode_operations ext4_dir_inode_operations = {
+            .create		= ext4_create,
+            .lookup		= ext4_lookup,
+            .link		= ext4_link,
+            .unlink		= ext4_unlink,
+            .symlink	= ext4_symlink,
+            .mkdir		= ext4_mkdir,
+            .rmdir		= ext4_rmdir,
+            .mknod		= ext4_mknod,
+            .tmpfile	= ext4_tmpfile,
+            .rename2	= ext4_rename2,
+            .setattr	= ext4_setattr,
+            .setxattr	= generic_setxattr,
+            .getxattr	= generic_getxattr,
+            .listxattr	= ext4_listxattr,
+            .removexattr	= generic_removexattr,
+            .get_acl	= ext4_get_acl,
+            .set_acl	= ext4_set_acl,
+            .fiemap         = ext4_fiemap,
+          };
+
+          const struct inode_operations ext4_special_inode_operations = {
+            .setattr	= ext4_setattr,
+            .setxattr	= generic_setxattr,
+            .getxattr	= generic_getxattr,
+            .listxattr	= ext4_listxattr,
+            .removexattr	= generic_removexattr,
+            .get_acl	= ext4_get_acl,
+            .set_acl	= ext4_set_acl,
+          };
+
+-----
+# Ext4
+## Where the **operation**s are assigned
+
+2. ext4 inode on the disk
+
+          struct ext4_inode {
+            __le16	i_mode;		/* File mode */
+            __le16	i_uid;		/* Low 16 bits of Owner Uid */
+            __le32	i_size_lo;	/* Size in bytes */
+            __le32	i_atime;	/* Access time */
+            __le32	i_ctime;	/* Inode Change time */
+            __le32	i_mtime;	/* Modification time */
+            __le32	i_dtime;	/* Deletion Time */
+            __le16	i_gid;		/* Low 16 bits of Group Id */
+            //...
+
+3. ex4 inode in memory
+
+          struct ext4_inode_info {
+          //...
+	        struct inode vfs_inode;
+          //...
+
+1. create dir or file
+
+          static int ext4_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl)
+          static int ext4_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
+-----
+# Ext4
+
+* fs/ext4/namei.c 
+
+          static struct dentry *ext4_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)
+
+          static struct buffer_head * ext4_find_entry (struct inode *dir,
+                    const struct qstr *d_name,
+                    struct ext4_dir_entry_2 **res_dir,
+                    int *inlined){
+            // ....
+            do {
+              block = dx_get_block(frame->at);
+              bh = ext4_read_dirblock(dir, block, DIRENT);
+            // ....
+
+
+          #define ext4_read_dirblock(inode, block, type) \
+            __ext4_read_dirblock((inode), (block), (type), __func__, __LINE__)
+
+          static struct buffer_head *__ext4_read_dirblock(struct inode *inode,
+                      ext4_lblk_t block,
+                      dirblock_type_t type,
+                      const char *func,
+                      unsigned int line)
+
+-----
+# Ext4
+
+* fs/ext4/namei.c
+
+          struct buffer_head *ext4_bread(handle_t *handle, struct inode *inode,
+                       ext4_lblk_t block, int map_flags);
+          |---> struct buffer_head *ext4_getblk(handle_t *handle, struct inode *inode,
+                  ext4_lblk_t block, int map_flags)
+                  |----> static inline struct buffer_head * sb_getblk(struct super_block *sb, sector_t block)
+                          |----> struct buffer_head * __getblk_gfp(struct block_device *bdev, sector_t block,
+	                              unsigned size, gfp_t gfp)
+
+Then, stuff with **block allocation**, **preallocation** and **buffer**
+
+-----
+# Ext4: Mount
+
+            static struct dentry *ext4_mount(struct file_system_type *fs_type, int flags,
+                       const char *dev_name, void *data)
+            {
+              return mount_bdev(fs_type, flags, dev_name, data, ext4_fill_super);
+            }
+1. What's **dev_name** ?
+2. What's the job of **mount\_bdev** ?
+3. What's the job of **ext4\_fill\_super** ?
+
+-----
+# Ext4: ext4\_fill\_super
+
+1. layout of ext4 disk
+
+          +----------------+------------------+------------------+------------------------+
+          |                |                  |                  |                        |
+          |  Boot Block    | Block            | Block            | ...                    |
+          |                | Group 0          | Group 0          |                        |
+          +----------------+------------------+------------------+------------------------+
+          +--------+----------------+----------+-------------+------------+--------------------------+
+          |        |                |          |             |            |                          |
+          |  Super |  Group         | Data     | Inode       | Inode      |     Data Blocks          |
+          |  block |  Descriptor    | Bitmap   | Bitmap      | Table      |                          |
+          |        |                |          |             |            |                          |
+          +--------+----------------+----------+-------------+------------+--------------------------+
+
+2. ext super block
+
+          struct ext4_super_block {
+          /*00*/	__le32	s_inodes_count;		/* Inodes count */
+            __le32	s_blocks_count_lo;	/* Blocks count */
+            __le32	s_r_blocks_count_lo;	/* Reserved blocks count */
+            __le32	s_free_blocks_count_lo;	/* Free blocks count */
+          /*10*/	__le32	s_free_inodes_count;	/* Free inodes count */
+
+3. generic super block
+
+          struct super_block {
+            struct list_head	s_list;		/* Keep this first */
+            unsigned char		s_blocksize_bits;
+            unsigned long		s_blocksize;
+            struct file_system_type	*s_type;
+            const struct super_operations	*s_op;
+-----
+# Ext4: mount\_bdev
+* fs/super.c
+
+        struct block_device *bdev;
+        struct super_block *s;
+        //....
+        bdev = blkdev_get_by_path(dev_name, mode, fs_type);
+        s = sget(fs_type, test_bdev_super, set_bdev_super, flags | MS_NOSEC,
+           bdev);
+        //....
+
+
+* fs/super.c
+
+        static int set_bdev_super(struct super_block *s, void *data) {
+          s->s_bdev = data;
+          s->s_dev = s->s_bdev->bd_dev;
+
+          /*
+           * We set the bdi here to the queue backing, file systems can
+           * overwrite this in ->fill_super()
+           */
+          s->s_bdi = &bdev_get_queue(s->s_bdev)->backing_dev_info;
+          return 0;
+        }
+-----
+# Ext4: mount\_bdev
+* fs/block_dev.c
+
+          struct block_device *blkdev_get_by_path(const char *path, fmode_t mode,
+            |        void *holder)
+            |---> bdev = lookup_bdev(path);
+            |     |---> error = kern_path(pathname, LOOKUP_FOLLOW, &path);
+            |            |
+            |            |---> filename_lookup(AT_FDCWD, getname_kernel(name), flags, path, NULL);
+            |                    |
+            |                    |----> retval = path_lookupat(&nd, flags | LOOKUP_RCU, path);
+            |
+            |---> err = blkdev_get(bdev, mode, holder);
+
+**path_lookupat** and **path_openat**
+
+**Everything is a file.**
+-----
+
+# Ext4: What is dev\_name
+1. /etc/fstab
+
+            ➜  linux-4.4.162 git:(master) ✗ cat /etc/fstab 
+            # <file system>             <mount point>  <type>  <options>  <dump>  <pass>
+            UUID=10BC-2E85                            /boot/efi      vfat    defaults,noatime 0 2
+            UUID=961b8b3f-926b-4ca3-aa9b-edf7946d6604 /              ext4    defaults,noatime 0 1
+
+2. df
+
+            ➜  df -Th
+            Filesystem     Type      Size  Used Avail Use% Mounted on
+            dev            devtmpfs  7.8G     0  7.8G   0% /dev
+            run            tmpfs     7.8G  1.5M  7.8G   1% /run
+            /dev/nvme0n1p5 ext4      115G   94G   15G  87% /
+            tmpfs          tmpfs     7.8G  701M  7.1G   9% /dev/shm
+            tmpfs          tmpfs     7.8G     0  7.8G   0% /sys/fs/cgroup
+            tmpfs          tmpfs     7.8G   88M  7.7G   2% /tmp
+            /dev/nvme0n1p1 vfat       96M   50M   47M  52% /boot/efi
+            tmpfs          tmpfs     1.6G   40K  1.6G   1% /run/user/1000
+            /dev/nvme0n1p3 fuseblk   121G  109G   13G  91% /run/media/shen/BECCDE17CCDDC9B3
+
+
+</div>
+
+<div id="device-slide" class="step slide markdown"  data-x="6000" data-y="0" data-z="30000">
+# Tour in Kernel : Device
+</div>
+
+
+<div id="device" class="step slide markdown" data-rel-x = "0" data-rel-y = "900" data-rel-z = "0">
+# Device
+> use char device as example
+
+
+              struct cdev {
+                struct kobject kobj;
+                struct module *owner;
+                const struct file_operations *ops;
+                struct list_head list;
+                dev_t dev;
+                unsigned int count;
+              };
+
+> Two **const struct file_operations *ops**
+-----
+# Device: the first fops
+
+
+1. standard char fops
+
+          const struct file_operations def_chr_fops = {
+            .open = chrdev_open,
+            .llseek = noop_llseek,
+          };
+
+2. init the fops with inode
+
+          void init_special_inode(struct inode *inode, umode_t mode, dev_t rdev)
+          {
+            inode->i_mode = mode;
+            if (S_ISCHR(mode)) {
+              inode->i_fop = &def_chr_fops;
+              inode->i_rdev = rdev;
+            } else if (S_ISBLK(mode)) {
+              inode->i_fop = &def_blk_fops;
+              inode->i_rdev = rdev;
+            } else if (S_ISFIFO(mode))
+              inode->i_fop = &pipefifo_fops;
+            else if (S_ISSOCK(mode))
+              ;	/* leave it no_open_fops */
+            else
+              printk(KERN_DEBUG "init_special_inode: bogus i_mode (%o) for"
+                    " inode %s:%lu\n", mode, inode->i_sb->s_id,
+                    inode->i_ino);
+          }
+          EXPORT_SYMBOL(init_special_inode);
+-----
+# Device: the second fops
+
+1. memory fops
+
+          static const struct file_operations memory_fops = {
+            .open = memory_open,
+            .llseek = noop_llseek,
+          };
+
+2. init the fops with inode
+
+          static int memory_open(struct inode *inode, struct file *filp)
+          {
+            int minor;
+            const struct memdev *dev;
+
+            minor = iminor(inode);
+            if (minor >= ARRAY_SIZE(devlist))
+              return -ENXIO;
+
+            dev = &devlist[minor];
+            if (!dev->fops)
+              return -ENXIO;
+
+            filp->f_op = dev->fops;
+            filp->f_mode |= dev->fmode;
+
+            if (dev->fops->open)
+              return dev->fops->open(inode, filp);
+
+            return 0;
+          }
+-----
+# Device : /dev/null
+
+1. **/dev/null** fops
+
+            static const struct file_operations null_fops = {
+              .llseek		= null_lseek,
+              .read		= read_null,
+              .write		= write_null,
+              .read_iter	= read_iter_null,
+              .write_iter	= write_iter_null,
+              .splice_write	= splice_write_null,
+            };
+
+2. write\_null does nothing
+
+            static ssize_t write_null(struct file *file, const char __user *buf,
+                    size_t count, loff_t *ppos)
+            {
+              return count;
+            }
+
+-----
+# End : Tools
+
+## [ccls](https://github.com/MaskRay/ccls)
+
+            +------------------------+    +---------------------------+    +-----------------------+
+            |                        |    |                           |    |                       |
+            |     Atom               |    |   coc.nvim                |    |                       |
+            |     Emacs              +--> |   LanguageClient-neovim   +--> |        ccls           |
+            |     Vim/Neovim         |    |   vim-lsp                 |    |                       |
+            |     Visual Studio Code |    |                           |    |                       |
+            |     Monaco Editor      |    |                           |    |                       |
+            +------------------------+    +---------------------------+    +-----------------------+
+            |                        |    |                           |    |                       |
+            |      Editor            | <--+  Editor Plugin            | <--+   Language Server     |
+            |                        |    |                           |    |                       |
+            |                        |    |                           |    |                       |
+            +------------------------+    +---------------------------+    +-----------------------+
+</div>
+
+<script type="text/javascript">
+var enableBwCss = function(){
+    disableDevopsCss();
+    disableEffectsCss();
+};
+
+var enableDevopsCss = function(){
+    document.body.classList.add("devopsy");
+    disableEffectsCss();
+};
+
+var disableDevopsCss = function(){
+    document.body.classList.remove("devopsy");
+};
+
+var enableEffectsCss = function(){
+    document.body.classList.add("effects");
+    disableDevopsCss();
+};
+
+var disableEffectsCss = function(){
+    document.body.classList.remove("effects");
+};
+
+enableEffectsCss();
+</script>
+
+
+
+
+<div id="impress-toolbar"></div>
+<div id="impress-help"></div>
+
+
+<!-- Extra modules
+     Load highlight.js, mermaid.js and markdown.js from extras.
+     See also src/plugins/extras/extras.js -->
+<script type="text/javascript" src="../../impress.js/extras/highlight/highlight.pack.js"></script>
+<script type="text/javascript" src="../../impress.js/extras/mermaid/mermaid.min.js"></script>
+<script type="text/javascript" src="../../impress.js/extras/markdown/markdown.js"></script>
+
+<!--
+    To make all described above really work, you need to include impress.js in the page.
+    You also need to call a `impress().init()` function to initialize impress.js presentation.
+    And you should do it in the end of your document. 
+-->
+<script type="text/javascript" src="../../impress.js/js/impress.js"></script>
+<script>impress().init();</script>
+</body>
+</html>

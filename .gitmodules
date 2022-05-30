@@ -1,9 +1,0 @@
-[submodule "extras"]
-	path = extras
-	url = https://github.com/impress/impress-extras
-[submodule "reveal.js"]
-	path = reveal.js
-	url = https://github.com/hakimel/reveal.js/
-[submodule "impress.js"]
-	path = impress.js
-	url = https://github.com/impress/impress.js.git
